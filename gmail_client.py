@@ -60,7 +60,7 @@ def _update_token_secret(creds):
             "scopes": list(creds.scopes) if creds.scopes else [],
         }
         client = secretmanager.SecretManagerServiceClient()
-        parent = f"projects/{config.GCP_PROJECT}/secrets/plannery/gmail-oauth-token"
+        parent = f"projects/{config.GCP_PROJECT}/secrets/gmail-oauth-token"
         client.add_secret_version(
             request={
                 "parent": parent,

@@ -195,17 +195,32 @@ async def nightly_run(
             # Test mode: single account
             log(f"Test mode: pulling single account {account_id}")
             record = await attio.get_full_context(account_id)
-            # Create a synthetic entry for this record
+            # Try to find a real pipeline entry; fall back to a synthetic one
             hs_entries = await attio.get_pipeline_entries(config.PIPELINE_HEALTHSTREAM)
             direct_entries = await attio.get_pipeline_entries(config.PIPELINE_DIRECT)
             all_entries = hs_entries + direct_entries
             target_entries = [e for e in all_entries if e.record_id == account_id]
             if not target_entries:
-                log(f"Account {account_id} not found in any pipeline — aborting")
-                return
-            for entry in target_entries:
-                entry.record = record
-            all_deals = target_entries
+                # Record exists but isn't in a pipeline — create a synthetic entry
+                # for test purposes at Discovery & Demo stage, 20 days stale
+                log(f"Account not in a pipeline — using synthetic test entry (Discovery & Demo, 20 days)")
+                from datetime import timedelta
+                from attio_client import PipelineEntry
+                synthetic = PipelineEntry(
+                    entry_id="test-entry-synthetic",
+                    record_id=account_id,
+                    pipeline=config.PIPELINE_DIRECT,
+                    stage="Discovery & Demo",
+                    cold_since=None,
+                    record=record,
+                )
+                # Override last_email_interaction so cadence fires
+                record.last_email_interaction = datetime.now(timezone.utc) - timedelta(days=20)
+                all_deals = [synthetic]
+            else:
+                for entry in target_entries:
+                    entry.record = record
+                all_deals = target_entries
         else:
             hs_deals = await attio.get_pipeline_entries(config.PIPELINE_HEALTHSTREAM)
             direct_deals = await attio.get_pipeline_entries(config.PIPELINE_DIRECT)

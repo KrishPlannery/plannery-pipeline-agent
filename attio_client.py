@@ -140,9 +140,9 @@ class AttioClient:
 
         while True:
             data = await self._request(
-                "GET",
-                f"/lists/{list_slug}/entries",
-                params={"limit": limit, "offset": offset},
+                "POST",
+                f"/lists/{list_slug}/entries/query",
+                json={"limit": limit, "offset": offset},
             )
             batch = data.get("data", [])
             for raw in batch:
@@ -160,7 +160,7 @@ class AttioClient:
     def _parse_entry(self, raw: dict, pipeline: str) -> Optional[PipelineEntry]:
         try:
             entry_id = raw["id"]["entry_id"]
-            record_id = raw["id"]["record_id"]
+            record_id = raw["parent_record_id"]
             attrs = raw.get("entry_values", {})
 
             stage_val = attrs.get("stage", [{}])

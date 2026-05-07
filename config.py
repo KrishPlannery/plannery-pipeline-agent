@@ -60,34 +60,34 @@ def get_secret(secret_id: str) -> str:
 # ---------------------------------------------------------------------------
 
 def attio_api_key() -> str:
-    return get_secret("plannery/attio-api-key")
+    return get_secret("attio-api-key")
 
 def anthropic_api_key() -> str:
-    return get_secret("plannery/anthropic-api-key")
+    return get_secret("anthropic-api-key")
 
 def slack_bot_token() -> str:
-    return get_secret("plannery/slack-bot-token")
+    return get_secret("slack-bot-token")
 
 def slack_signing_secret() -> str:
-    return get_secret("plannery/slack-signing-secret")
+    return get_secret("slack-signing-secret")
 
 def slack_channel_id() -> str:
-    return get_secret("plannery/slack-channel-id")
+    return get_secret("slack-channel-id")
 
 def slack_test_channel_id() -> str:
-    return get_secret("plannery/slack-test-channel-id")
+    return get_secret("slack-test-channel-id")
 
 def slack_dm_user_id() -> str:
-    return get_secret("plannery/slack-dm-user-id")
+    return get_secret("slack-dm-user-id")
 
 def gmail_oauth_token() -> str:
-    return get_secret("plannery/gmail-oauth-token")
+    return get_secret("gmail-oauth-token")
 
 def search_api_key() -> str:
-    return get_secret("plannery/search-api-key")
+    return get_secret("search-api-key")
 
 def search_provider() -> str:
-    return get_secret("plannery/search-provider")
+    return get_secret("search-provider")
 
 
 # ---------------------------------------------------------------------------
@@ -101,7 +101,7 @@ PIPELINE_HEALTHSTREAM = "hospital_pipeline_healthstream"
 PIPELINE_DIRECT = "hospital_pipeline_direct"
 
 GMAIL_SENDER = "krishnan@planneryapp.com"
-CLAUDE_MODEL = "claude-sonnet-4-20250514"
+CLAUDE_MODEL = "claude-sonnet-4-5"
 
 SKILL_FILE_PATH = "krish_email_skill.md"
 PENDING_APPROVALS_PATH = "state/pending_approvals.json"
