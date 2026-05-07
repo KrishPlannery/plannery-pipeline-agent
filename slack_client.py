@@ -91,6 +91,14 @@ class SlackClient:
             else "No recent news found"
         )
 
+        # Thread and CC context
+        thread_line = (
+            f"🧵 Replying into existing thread"
+            if draft.thread_context
+            else "✉️ New thread"
+        )
+        cc_line = f"CC: {', '.join(draft.cc)}" if draft.cc else ""
+
         text = (
             f"🏥 *{account.record.company_name}* — {pipeline_display} | Stage: {account.entry.stage}\n"
             f"📅 Days since last contact: {account.days_since_contact}\n"
@@ -98,9 +106,10 @@ class SlackClient:
             f"\n*Why this account needs follow-up:*\n{account.follow_up_reason}\n"
             f"\n*Recent context:*\n{research_section}\n"
             f"\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"\n*📧 Proposed email:*\n"
-            f"\n*Subject:* {draft.subject}\n"
-            f"\n{draft.body}\n"
+            f"\n*📧 Proposed email:* {thread_line}\n"
+            + (f"*CC:* {cc_line}\n" if cc_line else "")
+            + f"\n*Subject:* {draft.subject}\n"
+            f"\n{draft.greeting}\n\n{draft.body}\n"
             f"\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
             f"\nReply to this message with:\n"
             f"• *approved* → sends immediately via Gmail\n"

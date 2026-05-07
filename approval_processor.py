@@ -77,13 +77,31 @@ async def _handle_approved(
     thread_ts, record, slack, gmail, attio, skill, edited_body
 ):
     from gcs_client import read_json_file, write_json_file
+    from gmail_client import ThreadContext
 
     pending = read_json_file(config.PENDING_APPROVALS_PATH)
     subject = record["draft_subject"]
     body = edited_body if edited_body else record["draft_body"]
     to_email = record["contact_email"]
+    cc = record.get("draft_cc") or []
 
-    await gmail.send_email(to=to_email, subject=subject, body=body)
+    # Reconstruct thread context if we have one
+    thread_context = None
+    if record.get("gmail_thread_id") and record.get("gmail_last_message_id"):
+        thread_context = ThreadContext(
+            thread_id=record["gmail_thread_id"],
+            last_message_id=record["gmail_last_message_id"],
+            last_sender_name="",
+            last_sender_email=to_email,
+        )
+
+    await gmail.send_email(
+        to=to_email,
+        subject=subject,
+        body=body,
+        thread_context=thread_context,
+        cc=cc,
+    )
 
     ts_now = datetime.now(timezone.utc).isoformat()
     await attio.add_note(

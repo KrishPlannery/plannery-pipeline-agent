@@ -27,6 +27,7 @@ from attio_client import AttioClient, PipelineEntry
 from cadence_engine import CadenceEngine, FlaggedAccount
 from email_drafter import EmailDrafter
 from gcs_client import read_json_file, write_json_file
+from gmail_client import GmailClient
 from skill_manager import SkillManager
 from slack_client import SlackClient
 from web_researcher import WebResearcher
@@ -147,6 +148,10 @@ def _add_pending(
         "contact_email": contact_email,
         "draft_subject": draft.subject,
         "draft_body": draft.body,
+        "draft_greeting": draft.greeting,
+        "draft_cc": draft.cc,
+        "gmail_thread_id": draft.thread_context.thread_id if draft.thread_context else None,
+        "gmail_last_message_id": draft.thread_context.last_message_id if draft.thread_context else None,
         "created_at": now.isoformat(),
         "expires_at": (now + timedelta(hours=config.APPROVAL_TIMEOUT_HOURS)).isoformat(),
     }
@@ -165,6 +170,7 @@ async def nightly_run(
 
     attio = AttioClient()
     slack = SlackClient(test_mode=test_mode)
+    gmail = GmailClient(test_mode=test_mode)
     skill = SkillManager()
     researcher = WebResearcher()
     drafter = EmailDrafter(skill_manager=skill)
@@ -262,7 +268,13 @@ async def nightly_run(
                 ),
             )
 
-            draft = await drafter.draft(account, account.record, research)
+            # Look up existing Gmail thread for this account's contacts
+            contact_emails = [
+                c.email for c in (account.record.contacts or []) if c.email
+            ]
+            thread_context = await gmail.find_existing_thread(contact_emails)
+
+            draft = await drafter.draft(account, account.record, research, thread_context)
 
             ts = await slack.post_for_approval(account, draft, research)
             _add_pending(ts, account, draft, test_mode)

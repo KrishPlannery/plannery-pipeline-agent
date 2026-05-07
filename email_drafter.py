@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 import anthropic
 
@@ -18,7 +18,11 @@ from attio_client import AttioRecord, PipelineEntry
 from cadence_engine import FlaggedAccount
 from web_researcher import ResearchResult
 
+if TYPE_CHECKING:
+    from gmail_client import ThreadContext
+
 logger = logging.getLogger(__name__)
+SENDER = config.GMAIL_SENDER
 
 
 @dataclass
@@ -29,6 +33,9 @@ class EmailDraft:
     rationale: str
     value_props_used: list[str] = field(default_factory=list)
     research_used: bool = False
+    cc: list[str] = field(default_factory=list)
+    greeting: str = ""  # resolved greeting line e.g. "Hi Sarah,"
+    thread_context: Optional["ThreadContext"] = None
 
 
 _SYSTEM_PROMPT_TEMPLATE = """You are drafting follow-up emails on behalf of Krish Gopalakrishan, founder and CEO of Plannery Inc.
@@ -56,14 +63,16 @@ ACCOUNT CONTEXT:
 - Recent Attio notes: {notes_summary}
 - Recent web research: {research_summary}
 - Cold sequence position (if Cold): {cold_week}
+- Prior email thread exists: {has_prior_thread}
+- Opening greeting to use: {greeting}
 
 DRAFT RULES:
-1. Never start with "I hope this finds you well" or any variant
+1. Start the email body with exactly the greeting provided above — do not change it
 2. Never use "just following up" or "circling back"
 3. Lead with a specific, relevant hook — a news item, a data point, or a direct reference to the last conversation
 4. The email must have one clear ask — not multiple asks
-5. Maximum 150 words in the email body
-6. Subject line must be specific — never generic like "Checking in" or "Following up"
+5. Maximum 150 words in the email body (greeting and sign-off not counted)
+6. Subject line: if replying to a prior thread, prefix with "Re: " and reference the original subject. Otherwise make it specific and curiosity-driven — never generic
 7. If web research surfaced a relevant news item about this account, reference it naturally
 8. Match the tone to the stage: warmer and more exploratory at early stages, more direct and time-aware at later stages
 9. Never mention competitor products by name
@@ -85,6 +94,36 @@ _COLD_WEEK_ADDENDUM = {
     6: "COLD WEEK 6: The 'permission to close' email. Under 80 words. Create loss aversion. Direct ask: are they interested or should we stop reaching out?",
     10: "COLD WEEK 10: Move to quarterly track. Tone shifts to long-term relationship, no immediate ask.",
 }
+
+
+def _resolve_greeting(
+    thread_context: Optional["ThreadContext"],
+    record: AttioRecord,
+) -> str:
+    """
+    Determine the opening salutation.
+    - Prior thread exists: use first name of the last person who replied
+    - No prior thread, multiple contacts: "Hello there,"
+    - No prior thread, single contact: "Hi [first name],"
+    """
+    if thread_context and thread_context.last_sender_name:
+        first_name = thread_context.last_sender_name.split()[0]
+        return f"Hi {first_name},"
+
+    if thread_context and thread_context.last_sender_email:
+        # Name unknown — use email prefix
+        first_name = thread_context.last_sender_email.split("@")[0].split(".")[0].capitalize()
+        return f"Hi {first_name},"
+
+    contacts = [c for c in record.contacts if c.email]
+    if len(contacts) == 1:
+        first_name = contacts[0].name.split()[0] if contacts[0].name else "there"
+        return f"Hi {first_name},"
+
+    if len(contacts) > 1:
+        return "Hello there,"
+
+    return "Hi there,"
 
 
 def _format_contacts(record: AttioRecord) -> str:
@@ -153,6 +192,7 @@ class EmailDrafter:
         account: FlaggedAccount,
         context: AttioRecord,
         research: ResearchResult,
+        thread_context: Optional["ThreadContext"] = None,
     ) -> EmailDraft:
         skill_contents = ""
         if self._skill_manager:
@@ -162,6 +202,8 @@ class EmailDrafter:
         cold_addendum = ""
         if account.entry.stage == "Cold" and cold_week in _COLD_WEEK_ADDENDUM:
             cold_addendum = f"\n\nCOLD SEQUENCE OVERRIDE:\n{_COLD_WEEK_ADDENDUM[cold_week]}"
+
+        greeting = _resolve_greeting(thread_context, context)
 
         system_prompt = _SYSTEM_PROMPT_TEMPLATE.format(
             skill_file_contents=skill_contents or "(no skill file loaded)",
@@ -174,6 +216,8 @@ class EmailDrafter:
             notes_summary=_format_notes(context),
             research_summary=_format_research(research),
             cold_week=cold_week or "N/A",
+            has_prior_thread="Yes — reply into existing thread" if thread_context else "No — start a new thread",
+            greeting=greeting,
         ) + cold_addendum
 
         client = self._get_client()
@@ -191,12 +235,25 @@ class EmailDrafter:
 
         raw = message.content[0].text.strip()
         draft = self._parse_draft(raw, context)
+        draft.greeting = greeting
+        draft.thread_context = thread_context
+
+        # CC all other participants from the thread (excluding the primary To)
+        if thread_context and thread_context.all_participants:
+            primary_to = draft.to.lower()
+            draft.cc = [
+                e for e in thread_context.all_participants
+                if e.lower() != primary_to and e.lower() != SENDER.lower()
+            ]
+
         self._enforce_word_count(draft)
         logger.info(
-            "Drafted email for %s — subject: %s, words: %d",
+            "Drafted email for %s — subject: %s, words: %d, thread: %s, cc: %d",
             context.company_name,
             draft.subject,
             len(draft.body.split()),
+            thread_context.thread_id if thread_context else "new",
+            len(draft.cc),
         )
         return draft
 
