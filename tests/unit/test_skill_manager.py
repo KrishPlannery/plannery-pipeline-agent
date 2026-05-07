@@ -11,21 +11,15 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-if "config" not in sys.modules:
-    config_stub = types.ModuleType("config")
-    sys.modules["config"] = config_stub
-
-cfg = sys.modules["config"]
-cfg.SKILL_FILE_PATH = "krish_email_skill.md"
-cfg.SKILL_FILE_MAX_LINES = 500
-cfg.CLAUDE_MODEL = "claude-sonnet-4-20250514"
-cfg.anthropic_api_key = lambda: "sk-ant-test"
+# config stub installed by conftest.py before collection
 
 # Stub gcs_client before importing skill_manager
 gcs_stub = types.ModuleType("gcs_client")
 _gcs_store = {}
 gcs_stub.read_state_file = lambda path: _gcs_store.get(path, "")
 gcs_stub.write_state_file = lambda path, content: _gcs_store.update({path: content})
+gcs_stub.read_json_file = lambda path: {}
+gcs_stub.write_json_file = lambda path, data: None
 sys.modules["gcs_client"] = gcs_stub
 
 

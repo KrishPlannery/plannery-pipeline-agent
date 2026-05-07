@@ -11,27 +11,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-# Patch config before importing cadence_engine so no Secret Manager calls happen
-import sys
-import types
-
-# Minimal config stub
-config_stub = types.ModuleType("config")
-config_stub.PIPELINE_HEALTHSTREAM = "hospital_pipeline_healthstream"
-config_stub.PIPELINE_DIRECT = "hospital_pipeline_direct"
-config_stub.SKILL_FILE_PATH = "krish_email_skill.md"
-config_stub.PENDING_APPROVALS_PATH = "state/pending_approvals.json"
-config_stub.APPROVAL_TIMEOUT_HOURS = 48
-config_stub.SKILL_FILE_MAX_LINES = 500
-config_stub.MAX_EMAIL_WORDS = 150
-config_stub.MAX_RESEARCH_QUERIES = 3
-config_stub.RESEARCH_TIMEOUT_SECONDS = 45
-config_stub.NEWS_RECENCY_DAYS = 90
-config_stub.INTER_ACCOUNT_SLACK_DELAY = 30
-config_stub.GCS_BUCKET = "plannery-agent-state"
-config_stub.GCP_PROJECT = "plannery-agents"
-sys.modules["config"] = config_stub
-
+# config stub installed by conftest.py before collection
 from attio_client import AttioContact, AttioRecord, PipelineEntry
 from cadence_engine import CadenceEngine, FlaggedAccount
 
@@ -243,7 +223,8 @@ class TestPendingApprovalSkip:
         pending = {"some_ts": {"company_name": "Baptist Health"}}
         result = engine.evaluate([entry], pending_approvals=pending, now=NOW)
         assert len(result.flagged) == 0
-        assert any("Baptist Health" in r.record.company_name for _, _ in [(e, r) for e, r in result.skipped])
+        skipped_names = [entry.record.company_name for entry, _ in result.skipped if entry.record]
+        assert any("Baptist Health" in name for name in skipped_names)
 
     def test_pending_approval_case_insensitive(self):
         entry = _make_entry(

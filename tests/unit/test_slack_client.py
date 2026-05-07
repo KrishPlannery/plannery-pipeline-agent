@@ -6,23 +6,12 @@ from __future__ import annotations
 
 import json
 import sys
-import types
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-if "config" not in sys.modules:
-    config_stub = types.ModuleType("config")
-    sys.modules["config"] = config_stub
-
-cfg = sys.modules["config"]
-cfg.APPROVAL_TIMEOUT_HOURS = 48
-cfg.PENDING_APPROVALS_PATH = "state/pending_approvals.json"
-cfg.slack_bot_token = lambda: "xoxb-test-token"
-cfg.slack_channel_id = lambda: "C_PROD"
-cfg.slack_test_channel_id = lambda: "C_TEST"
-cfg.slack_dm_user_id = lambda: "U_KRISH"
+# config stub installed by conftest.py before collection
 
 NOW = datetime(2026, 5, 6, 10, 0, 0, tzinfo=timezone.utc)
 
@@ -91,7 +80,7 @@ class TestPendingApprovalTimeout:
 
         slack.post_thread_reply = fake_reply
 
-        with patch("slack_client.read_json_file", return_value=pending_data):
+        with patch("gcs_client.read_json_file", return_value=pending_data):
             await slack.check_pending_approvals()
 
         assert len(posted_reminders) == 1
@@ -119,9 +108,7 @@ class TestPendingApprovalTimeout:
 
         slack.post_thread_reply = fake_reply
 
-        with patch("slack_client.read_json_file", return_value=pending_data):
-            with patch("slack_client.datetime") as mock_dt:
-                mock_dt.now.return_value = NOW
-                await slack.check_pending_approvals()
+        with patch("gcs_client.read_json_file", return_value=pending_data):
+            await slack.check_pending_approvals()
 
         assert len(reminders) == 0

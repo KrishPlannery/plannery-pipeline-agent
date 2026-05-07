@@ -7,22 +7,12 @@ from __future__ import annotations
 
 import json
 import sys
-import types
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-# Config stub (reuse if already patched by cadence test, else create)
-if "config" not in sys.modules:
-    config_stub = types.ModuleType("config")
-    config_stub.MAX_EMAIL_WORDS = 150
-    config_stub.CLAUDE_MODEL = "claude-sonnet-4-20250514"
-    sys.modules["config"] = config_stub
-else:
-    sys.modules["config"].MAX_EMAIL_WORDS = 150
-    sys.modules["config"].CLAUDE_MODEL = "claude-sonnet-4-20250514"
-
+# config stub installed by conftest.py before collection
 from attio_client import AttioContact, AttioRecord, PipelineEntry
 from cadence_engine import FlaggedAccount
 from email_drafter import EmailDraft, EmailDrafter
