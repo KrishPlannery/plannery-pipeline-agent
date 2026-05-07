@@ -109,7 +109,7 @@ class SlackClient:
             f"\n*📧 Proposed email:* {thread_line}\n"
             + (f"*CC:* {cc_line}\n" if cc_line else "")
             + f"\n*Subject:* {draft.subject}\n"
-            f"\n{draft.greeting}\n\n{draft.body}\n"
+            f"\n{draft.body}\n"
             f"\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
             f"\nReply to this message with:\n"
             f"• *approved* → sends immediately via Gmail\n"
