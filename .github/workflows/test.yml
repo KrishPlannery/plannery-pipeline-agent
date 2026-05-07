@@ -1,0 +1,28 @@
+name: Unit Tests
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run unit tests
+        run: pytest tests/unit/ -v --tb=short --cov=. --cov-report=term-missing
+
+      - name: Enforce 80% coverage on cadence_engine and email_drafter
+        run: |
+          pytest tests/unit/ \
+            --cov=cadence_engine \
+            --cov=email_drafter \
+            --cov-fail-under=80 \
+            -q
